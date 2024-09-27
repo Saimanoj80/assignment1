@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Binance Market Data WebSocket Implementation</title>
+  <style>
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .chart-container {
+      width: 100%;
+      height: 400px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <select id="cryptocurrency-select">
+        <option value="ETH/USDT">ETH/USDT</option>
+        <option value="BNB/USDT">BNB/USDT</option>
+        <option value="DOT/USDT">DOT/USDT</option>
+      </select>
+      <select id="timeframe-select">
+        <option value="1m">1 minute</option>
+        <option value="3m">3 minutes</option>
+        <option value="5m">5 minutes</option>
+      </select>
+    </div>
+    <div class="chart-container">
+      <canvas id="chart-canvas"></canvas>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const binanceWebSocketUrl = 'wss://stream.binance.com:9443/ws';
+    let ws;
+    let chart;
+    let selectedSymbol;
+    let selectedInterval;
+
+    const connectToBinanceWebSocket = (symbol, interval) => {
+      ws = new WebSocket(`${binanceWebSocketUrl}/${symbol}@kline_${interval}`);
+      ws.on('message', (data) => {
+        const jsonData = JSON.parse(data);
+        updateChart(jsonData);
+      });
+      ws.on('error', (error) => {
+        console.error('Error occurred:', error);
+      });
+      ws.on('close', () => {
+        console.log('WebSocket connection closed');
+      });
+    };
+
+    const updateChart = (data) => {
+      if (!chart) {
+        const chartCanvas = document.getElementById('chart-canvas');
+        chart = new Chart(chartCanvas, {
+          type: 'candlestick',
+          data: [],
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true,
+              },
+            },
+          },
+        });
+      }
+      chart.data.datasets[0].data.push(data);
+      chart.update();
+    };
+
+    const storeChartData = (symbol, data) => {
+      localStorage.setItem(`chart-data-${symbol}`, JSON.stringify(data));
+    };
+
+    const retrieveChartData = (symbol) => {
+      const storedData = localStorage.getItem(`chart-data-${symbol}`);
+      return storedData ? JSON.parse(storedData) : [];
+    };
+
+    document.getElementById('cryptocurrency-select').addEventListener('change', (event) => {
+      selectedSymbol = event.target.value;
+      connectToBinanceWebSocket(selectedSymbol, selectedInterval);
+    });
+
+    document.getElementById('timeframe-select').addEventListener('change', (event) => {
+      selectedInterval = event.target.value;
+      connectToBinanceWebSocket(selectedSymbol, selectedInterval);
+    });
+
+    // Initialize with default values
+    selectedSymbol = 'ETH/USDT';
+    selectedInterval = '1m';
+    connectToBinanceWebSocket(selectedSymbol, selectedInterval);
+  </script>
+</body>
+</html>
